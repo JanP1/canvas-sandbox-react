@@ -1,5 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 
+type Person = {
+  id: string;
+  name: string;
+  parent_id?: string;
+  spouse_id?: string;
+  children_ids?: string[];
+  x: number;
+  y: number;
+};
+
+const people: Person[] = [
+  { id: '1', name: 'John', x: 100, y: 100, spouse_id: '2', children_ids: ['3', '4'] },
+  { id: '2', name: 'Jane', x: 220, y: 100, spouse_id: '1', children_ids: ['3', '4'] },
+  { id: '3', name: 'Alice', parent_id: '1', x: 100, y: 250 },
+  { id: '4', name: 'Bob', parent_id: '1', x: 220, y: 250 },
+];
+
 const CanvasComponent: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const infoRef = useRef<HTMLDivElement | null>(null);
@@ -14,10 +31,12 @@ const CanvasComponent: React.FC = () => {
   const dragStartY = useRef(0);
   const needsRedraw = useRef(true);
 
+  const rectW = 80;
+  const rectH = 40;
+
   const drawShapes = () => {
     const canvas = canvasRef.current;
     if (!canvas || !needsRedraw.current) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -29,38 +48,82 @@ const CanvasComponent: React.FC = () => {
     ctx.translate(offsetX.current, offsetY.current);
     ctx.scale(scale.current, scale.current);
 
-    // Red rectangle
-    ctx.fillStyle = 'red';
-    ctx.fillRect(50, 50, 100, 80);
+    const peopleMap = new Map<string, Person>();
+    people.forEach(p => peopleMap.set(p.id, p));
 
-    // Green rectangle
-    const greenRect = { x: 100, y: 200, w: 100, h: 60 };
-    ctx.fillStyle = 'green';
-    ctx.fillRect(greenRect.x, greenRect.y, greenRect.w, greenRect.h);
+    // Draw spouse connections and children lines FIRST (lines go below rectangles)
+    ctx.strokeStyle = '#3096b8';
+    ctx.lineWidth = 2;
 
-    // Blue rectangle
-    const blueRect = { x: 350, y: 200, w: 100, h: 60 };
-    ctx.fillStyle = 'blue';
-    ctx.fillRect(blueRect.x, blueRect.y, blueRect.w, blueRect.h);
+    people.forEach(person => {
+      if (person.spouse_id && person.id < person.spouse_id) {
+        const spouse = peopleMap.get(person.spouse_id);
+        if (!spouse) return;
+        const x1 = person.x + rectW / 2;
+        const y1 = person.y + rectH / 2;
+        const x2 = spouse.x + rectW / 2;
+        const y2 = spouse.y + rectH / 2;
 
-    // Connecting line
-    const greenMidTop = { x: greenRect.x + greenRect.w / 2, y: greenRect.y };
-    const blueMidTop = { x: blueRect.x + blueRect.w / 2, y: blueRect.y };
-    const joinX = (greenMidTop.x + blueMidTop.x) / 2;
-    const joinY = greenMidTop.y - 40;
-    const bumpHeight = 10;
+        // Spouse connection line
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
 
-    ctx.beginPath();
-    ctx.moveTo(greenMidTop.x, greenMidTop.y);
-    ctx.lineTo(greenMidTop.x, greenMidTop.y - 20);
-    ctx.lineTo(joinX - 10, joinY);
-    ctx.lineTo(joinX, joinY - bumpHeight);
-    ctx.lineTo(joinX + 10, joinY);
-    ctx.lineTo(blueMidTop.x, blueMidTop.y - 20);
-    ctx.lineTo(blueMidTop.x, blueMidTop.y);
-    ctx.strokeStyle = 'lightblue';
-    ctx.lineWidth = 4;
-    ctx.stroke();
+        if (person.children_ids && person.children_ids.length > 0) {
+          const joinX = (x1 + x2) / 2;
+          const joinY = (y1 + y2) / 2;
+          const childY = joinY + 40;
+
+          // Vertical line down from spouse connection
+          ctx.beginPath();
+          ctx.moveTo(joinX, joinY);
+          ctx.lineTo(joinX, childY);
+          ctx.stroke();
+
+          // Get children center x positions
+          const childXs = person.children_ids
+            .map(id => {
+              const child = peopleMap.get(id);
+              return child ? child.x + rectW / 2 : null;
+            })
+            .filter(x => x !== null) as number[];
+
+          if (childXs.length === 0) return;
+
+          const minX = Math.min(...childXs);
+          const maxX = Math.max(...childXs);
+
+          // Horizontal line connecting children
+          ctx.beginPath();
+          ctx.moveTo(minX, childY);
+          ctx.lineTo(maxX, childY);
+          ctx.stroke();
+
+          // Vertical lines from horizontal to each child
+          person.children_ids.forEach(childId => {
+            const child = peopleMap.get(childId);
+            if (!child) return;
+            const cx = child.x + rectW / 2;
+            const cy = child.y;
+            ctx.beginPath();
+            ctx.moveTo(cx, childY);
+            ctx.lineTo(cx, cy);
+            ctx.stroke();
+          });
+        }
+      }
+    });
+
+    // Draw people rectangles ON TOP of lines
+    people.forEach(person => {
+      ctx.fillStyle = '#28758f';
+      ctx.fillRect(person.x, person.y, rectW, rectH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '14px sans-serif';
+      ctx.fillText(person.name, person.x + 8, person.y + 25);
+    });
 
     ctx.restore();
   };
@@ -77,8 +140,17 @@ const CanvasComponent: React.FC = () => {
     const contentX = (mouseX - offsetX.current) / scale.current;
     const contentY = (mouseY - offsetY.current) / scale.current;
 
-    if (contentX >= 50 && contentX <= 150 && contentY >= 50 && contentY <= 130) {
-      infoDiv.textContent = 'Red';
+    // Check if click is inside any person's rectangle
+    const clickedPerson = people.find(
+      p =>
+        contentX >= p.x &&
+        contentX <= p.x + rectW &&
+        contentY >= p.y &&
+        contentY <= p.y + rectH
+    );
+
+    if (clickedPerson) {
+      infoDiv.textContent = `Clicked: ${clickedPerson.name}`;
     } else {
       infoDiv.textContent = '';
     }
@@ -133,7 +205,7 @@ const CanvasComponent: React.FC = () => {
 
       const zoomAmount = -e.deltaY * 0.001;
       const oldScale = scale.current;
-      const newScale = Math.min(Math.max(0.2, oldScale * (1 + zoomAmount)), 5);
+      const newScale = Math.min(Math.max(0.2, oldScale * (1 + zoomAmount)), 2);
 
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -171,7 +243,7 @@ const CanvasComponent: React.FC = () => {
         height={800}
         style={{ border: '1px solid black', touchAction: 'none' }}
       />
-      <div id="info" ref={infoRef} style={{ marginTop: '10px' }} />
+      <div id="info" ref={infoRef} style={{ marginTop: '10px', color: 'lightblue' }} />
     </div>
   );
 };
