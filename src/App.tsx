@@ -1,5 +1,4 @@
 import './App.css'
-import CanvasComponent from './components/CanvasComponent'
 
 function App() {
 
@@ -7,7 +6,6 @@ function App() {
     <>
       <div className='spa-layout-container'>
 
-        <CanvasComponent/>
         
 
       </div>
