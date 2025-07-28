@@ -41,7 +41,9 @@ const Dropdown = ({
   return (
     <div className="custom-dropdown" ref={ref}>
       <div className="selected-value" onClick={() => setOpen(!open)}>
-        {value || label}
+        <div className="left-grid-column">
+          {value || label}
+        </div>
         <svg
           className={`dropdown-arrow ${open ? "rotate" : ""}`}
           width="12"
