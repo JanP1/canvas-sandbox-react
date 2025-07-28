@@ -16,6 +16,7 @@ function App() {
       <div className='spa-layout-container'>
         <DatePickerComponent value={selectedDate} onDateChange={handleDateChange}/>
 
+        <div className='test-div'></div>
         
 
       </div>

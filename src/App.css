@@ -13,9 +13,20 @@ body{
   width: calc(100% - 20px);  /* Subtract margins */
   height: calc(100vh - 20px);
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   background-color: #17222e;
   /* background-color: #202422; */
   overflow: hidden;
+}
+
+
+.test-div {
+  height: 100px;
+  width: 500px;
+  background-color: yellow;
+  opacity: 0.2;
+  z-index: 99;
+  margin: 50px;
 }
